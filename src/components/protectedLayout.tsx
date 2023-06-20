@@ -1,5 +1,8 @@
+import authRepository from '@/api/auth';
+import { useMutation } from '@tanstack/react-query';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 export default function ProtectedLayout({
   children,
@@ -13,7 +16,23 @@ export default function ProtectedLayout({
       router.replace('/');
     },
   });
-  console.log('🚀 ~ session:', session);
+
+  const handleSignOut = () => logoutMutation.mutate();
+
+  const logoutMutation = useMutation(authRepository.logout, {
+    onSuccess() {
+      signOut({ redirect: false }).then((res) => {
+        router.replace(window.location.href);
+      });
+    },
+    onError() {},
+  });
+
+  useEffect(() => {
+    if (session?.error === 'RefreshAccessTokenError') {
+      // handleSignOut();
+    }
+  }, [session]);
 
   if (status === 'loading') {
     return (
@@ -41,13 +60,11 @@ export default function ProtectedLayout({
           padding: 20,
         }}
       >
-        <h2>Hello, {session?.user?.name}</h2>
+        <h2>Hello, {session?.user?.email}</h2>
         <button
           onClick={(event) => {
             event.preventDefault();
-            signOut({ redirect: false }).then(() =>
-              router.push(window.location.href)
-            );
+            handleSignOut();
           }}
           style={{ height: 'fit-content' }}
         >

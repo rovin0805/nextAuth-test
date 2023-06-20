@@ -1,7 +1,32 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { fetchPostLoginAdmin } from '@/api/auth/index';
-import { ILoginBody } from '@/api/auth/dtos/ILoginBody';
+import jwtDecode from 'jwt-decode';
+import dayjs from 'dayjs';
+import authRepository from '@/api/auth';
+import RequestLoginBody from '@/api/auth/dtos/requestLogin.dto';
+
+async function refreshToken(tokenObject: any) {
+  try {
+    const response = await authRepository.refresh();
+    const {
+      data: { accessToken, refreshToken },
+    } = response;
+
+    return {
+      ...tokenObject,
+      user: {
+        ...tokenObject.user,
+        accessToken,
+        refreshToken,
+      },
+    };
+  } catch (error) {
+    return {
+      ...tokenObject,
+      error: 'RefreshAccessTokenError',
+    };
+  }
+}
 
 export const authOptions = {
   providers: [
@@ -9,20 +34,19 @@ export const authOptions = {
       id: 'credentials',
       name: 'credentials',
       credentials: {
-        serviceId: { label: 'id', type: 'text' },
+        email: { label: 'email', type: 'text' },
         password: {
           label: 'password',
           type: 'password',
           placeholder: '비밀번호',
         },
-        token: { label: 'token', type: 'text' },
       },
       async authorize(credentials, req) {
-        const res = await fetchPostLoginAdmin(credentials as ILoginBody);
+        const res = await authRepository.login(credentials as RequestLoginBody);
 
         if (res.success) {
           return {
-            ...res.data.admin,
+            ...res.data.user,
             accessToken: res.data.accessToken,
             refreshToken: res.data.refreshToken,
           };
@@ -33,14 +57,36 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account, profile, isNewUser }) {
+    async jwt({ token, user, account, profile, isNewUser }: any) {
       if (user) {
+        // This will only be executed at login.
+        // Each next invocation will skip this part.
         token.user = user;
       }
+
+      const decoded = jwtDecode(token.user.accessToken) as {
+        id: number;
+        iat: number;
+        exp: number;
+      };
+      const expDate = dayjs.unix(decoded.exp);
+      const shouldRefresh = expDate.isBefore(dayjs());
+
+      if (shouldRefresh) {
+        const newToken = await refreshToken(token);
+        return newToken;
+      }
+
       return token;
     },
-    async session({ session, token, user }) {
-      session.user = { ...token.user };
+    async session({ session, token, user }: any) {
+      if (token.user) {
+        session.user = { ...token.user };
+      }
+      if (token.error) {
+        session.error = token.error;
+      }
+      // console.log(`@@@ session ${new Date()} :`, session);
       return session;
     },
   },

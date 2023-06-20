@@ -1,28 +1,28 @@
-import { ILoginBody } from '@/api/auth/dtos/ILoginBody';
+import RequestLoginBody from '@/api/auth/dtos/requestLogin.dto';
 import type { NextPage } from 'next';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { Controller, SubmitHandler, useForm } from 'react-hook-form';
+import { classValidatorResolver } from '@hookform/resolvers/class-validator';
 
 const Home: NextPage = () => {
   const router = useRouter();
 
   const { data: session, status } = useSession();
 
-  const { control, handleSubmit, getValues } = useForm({
+  const { control, handleSubmit, getValues } = useForm<RequestLoginBody>({
+    resolver: classValidatorResolver(RequestLoginBody),
     defaultValues: {
-      serviceId: '',
+      email: '',
       password: '',
-      token: '',
     },
   });
 
   const handleSignIn = () =>
     signIn('credentials', {
       callbackUrl: window.location.href + 'home',
-      serviceId: getValues('serviceId'),
+      email: getValues('email'),
       password: getValues('password'),
-      token: getValues('token'),
       redirect: false,
     })
       .then((res) => {
@@ -34,7 +34,7 @@ const Home: NextPage = () => {
       })
       .catch(alert);
 
-  const onSubmit: SubmitHandler<ILoginBody> = (body, event) => {
+  const onSubmit: SubmitHandler<RequestLoginBody> = (body, event) => {
     event?.preventDefault();
     handleSignIn();
   };
@@ -77,11 +77,12 @@ const Home: NextPage = () => {
       >
         <Controller
           control={control}
-          name='serviceId'
+          name='email'
           render={({ field, fieldState, formState }) => (
-            <input style={{ height: 40 }} placeholder='id' {...field} />
+            <input style={{ height: 40 }} placeholder='email' {...field} />
           )}
         />
+
         <Controller
           control={control}
           name='password'
@@ -94,13 +95,7 @@ const Home: NextPage = () => {
             />
           )}
         />
-        <Controller
-          control={control}
-          name='token'
-          render={({ field, fieldState, formState }) => (
-            <input style={{ height: 40 }} placeholder='OTP' {...field} />
-          )}
-        />
+
         <button
           type='submit'
           style={{ height: 40 }}

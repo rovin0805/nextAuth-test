@@ -1,28 +1,23 @@
 import client from '../client';
-import { ILoginBody } from './dtos/ILoginBody';
-import { ILoginRes } from './dtos/ILoginRes';
-import { ILoginUserInfo } from './dtos/ILoginUserInfo';
+import { ResponseAuthDto } from './dtos/responseAuth.dto';
+import { ResponseRefreshToken } from './dtos/responseRefreshToken.dto';
+import RequestLoginBody from './dtos/requestLogin.dto';
+import { UserDto } from './dtos/userDto';
 
-const BASE_URL = '/v1/admin/auth';
+const authRepository = (() => {
+  const BASE_URL = '/v1/business/auth';
 
-/**
- * 관리자 로그인
- */
-export const fetchPostLoginAdmin = (body: ILoginBody) =>
-  client.post<{
-    admin: ILoginUserInfo;
-    accessToken: string;
-    refreshToken: string;
-  }>(`${BASE_URL}/login`, body);
+  return {
+    login: async (body: RequestLoginBody) =>
+      client.post<ResponseAuthDto>(`${BASE_URL}/login`, body),
 
-/**
- * 관리자 로그아웃
- */
-export const fetchDeleteLogoutAdmin = () =>
-  client.delete<{ success: boolean }>(`${BASE_URL}/logout`);
+    logout: async () => client.delete<undefined>(BASE_URL + `/logout`),
 
-/**
- * 토큰 갱신
- */
-export const fetchPutRefreshToken = () =>
-  client.put<ILoginRes>(`${BASE_URL}/refresh`);
+    refresh: async () =>
+      client.put<ResponseRefreshToken>(`${BASE_URL}/refresh`, {}),
+
+    getMe: async () => client.get<UserDto>(`${BASE_URL}/me`),
+  };
+})();
+
+export default authRepository;
