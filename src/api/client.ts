@@ -6,8 +6,9 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from 'axios';
-import { getSession } from 'next-auth/react';
+import { getSession, signOut } from 'next-auth/react';
 import createAuthRefreshInterceptor from 'axios-auth-refresh';
+import authRepository from './auth';
 
 export interface ResponseFormat<T = any> {
   success: boolean;
@@ -81,7 +82,7 @@ const client: CustomInstance = axios.create();
 client.defaults.baseURL = 'https://dev.server.pointmonster.co.kr/api';
 
 // const refreshAuthLogic = async (failedRequest: AxiosError) => {
-//   const response = await fetchPutRefreshToken();
+//   const response = await authRepository.refresh();
 //   const {
 //     data: { accessToken, refreshToken },
 //   } = response;
@@ -97,10 +98,7 @@ client.interceptors.request.use(
   async (config) => {
     const session = await getSession();
     if (session) {
-      const isRefreshRes = config.url?.includes('refresh');
-      config.headers.Authorization = `Bearer ${
-        isRefreshRes ? session.user.refreshToken : session.user.accessToken
-      }`;
+      config.headers.Authorization = `Bearer ${session.user.accessToken}`;
     }
     return config;
   },
@@ -115,6 +113,11 @@ client.interceptors.response.use(
     return response.data;
   },
   function (error) {
+    if (error.response.status === 401 || error.response.status === 400) {
+      signOut({ redirect: false }).then((res) => {
+        window.location.href = '/';
+      });
+    }
     return Promise.reject(error);
   }
 );

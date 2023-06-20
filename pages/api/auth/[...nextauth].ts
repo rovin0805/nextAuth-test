@@ -4,10 +4,21 @@ import jwtDecode from 'jwt-decode';
 import dayjs from 'dayjs';
 import authRepository from '@/api/auth';
 import RequestLoginBody from '@/api/auth/dtos/requestLogin.dto';
+import { ResponseRefreshToken } from '@/api/auth/dtos/responseRefreshToken.dto';
+import client from '@/api/client';
 
 async function refreshToken(tokenObject: any) {
   try {
-    const response = await authRepository.refresh();
+    const BASE_URL = '/v1/business/auth';
+    const response = await client.put<ResponseRefreshToken>(
+      `${BASE_URL}/refresh`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${tokenObject.user.refreshToken}`,
+        },
+      }
+    );
     const {
       data: { accessToken, refreshToken },
     } = response;
@@ -41,6 +52,7 @@ export const authOptions = {
           placeholder: '비밀번호',
         },
       },
+      //@ts-ignore
       async authorize(credentials, req) {
         const res = await authRepository.login(credentials as RequestLoginBody);
 
@@ -70,7 +82,9 @@ export const authOptions = {
         exp: number;
       };
       const expDate = dayjs.unix(decoded.exp);
-      const shouldRefresh = expDate.isBefore(dayjs());
+      const now = dayjs();
+      const diffMinutes = expDate.diff(now, 'minute');
+      const shouldRefresh = diffMinutes <= 1;
 
       if (shouldRefresh) {
         const newToken = await refreshToken(token);
@@ -79,14 +93,10 @@ export const authOptions = {
 
       return token;
     },
-    async session({ session, token, user }: any) {
-      if (token.user) {
-        session.user = { ...token.user };
-      }
-      if (token.error) {
-        session.error = token.error;
-      }
-      // console.log(`@@@ session ${new Date()} :`, session);
+    session({ session, token, user }: any) {
+      session.user = token.user;
+      session.error = token.error;
+      console.log('🚀 ~ file: [...nextauth] session:', session);
       return session;
     },
   },

@@ -17,20 +17,20 @@ export default function ProtectedLayout({
     },
   });
 
-  const handleSignOut = () => logoutMutation.mutate();
-
   const logoutMutation = useMutation(authRepository.logout, {
-    onSuccess() {
+    onSettled(data, error, variables, context) {
       signOut({ redirect: false }).then((res) => {
         router.replace(window.location.href);
       });
     },
-    onError() {},
   });
 
+  console.log(session);
   useEffect(() => {
     if (session?.error === 'RefreshAccessTokenError') {
-      // handleSignOut();
+      signOut({ redirect: false }).then((res) => {
+        router.replace(window.location.href);
+      });
     }
   }, [session]);
 
@@ -64,7 +64,7 @@ export default function ProtectedLayout({
         <button
           onClick={(event) => {
             event.preventDefault();
-            handleSignOut();
+            logoutMutation.mutate();
           }}
           style={{ height: 'fit-content' }}
         >
